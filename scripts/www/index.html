@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LED 屏体网线带载计算器</title>
+  <style>
+    :root { --blue:#2d80d3; --ink:#202633; --muted:#727a89; --line:#dfe5ee; --bg:#f4f7fb; --card:#fff; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif; }
+    .app { max-width:1180px; margin:0 auto; padding:34px 18px 56px; }
+    header { margin-bottom:22px; }
+    h1 { margin:0 0 8px; font-size:25px; letter-spacing:.2px; }
+    header p { margin:0; color:var(--muted); font-size:14px; }
+    .layout { display:grid; grid-template-columns:380px minmax(0,1fr); gap:18px; align-items:start; }
+    .card { background:var(--card); border-radius:10px; padding:22px; box-shadow:0 2px 12px rgba(30,51,85,.05); }
+    h2 { margin:0 0 22px; font-size:19px; }
+    .field { display:grid; grid-template-columns:94px 1fr; gap:10px; align-items:center; margin:0 0 16px; }
+    .field label { color:#4d5563; font-size:14px; }
+    .inline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    input, select { height:32px; border:1px solid #cdd5df; border-radius:4px; padding:4px 9px; font-size:14px; outline:none; background:#fff; }
+    input { width:74px; }
+    select { min-width:120px; }
+    input:focus, select:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(45,128,211,.12); }
+    .wide { width:132px; }
+    .unit { color:var(--muted); font-size:13px; margin-right:5px; }
+    .button { border:0; border-radius:4px; background:var(--blue); color:white; height:34px; padding:0 13px; font-size:14px; font-weight:600; cursor:pointer; transition:.15s; }
+    .button:hover { background:#176fbd; }
+    .button.secondary { background:#eef3f9; color:#2d80d3; }
+    .button.secondary:hover { background:#dde7f3; }
+    .right { display:grid; gap:18px; }
+    .preview-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:19px; }
+    .preview-head h2 { margin:0; }
+    .legend { color:var(--muted); font-size:12px; }
+    .screen-wrap { overflow:auto; padding:2px; }
+    .screen { display:grid; gap:5px; width:max-content; min-width:100%; }
+    .box { width:53px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(31,40,54,.34); color:#1f2732; font-weight:700; font-size:13px; background:#eee; }
+    /* 电源示意图：深色高对比，与网线冷色系明显区分 */
+    .pbox { width:53px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,0,0,.4); color:#fff; font-weight:700; font-size:13px; text-shadow:0 1px 2px rgba(0,0,0,.35); }
+    .power-preview-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:19px; }
+    .power-preview-head h2 { margin:0; }
+    .summary { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+    .metric { background:#fff; padding:14px 13px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { font-size:19px; }
+    .metric.full { grid-column:span 2; }
+    .result h2 { margin-bottom:15px; }
+    .formula { margin:15px 0 0; color:#555f6e; font-size:13px; }
+    .warning { margin:14px 0 0; border-radius:6px; padding:10px 12px; background:#fff7e9; color:#9b6510; font-size:13px; display:none; }
+    .warning.show { display:block; }
+    .processor h2 { margin-bottom:8px; }
+    .processor-note { margin:0 0 14px; color:var(--muted); font-size:13px; }
+    .processor-group { border:1px solid var(--line); border-radius:7px; padding:13px; }
+    .processor-group h3 { margin:0 0 9px; font-size:14px; }
+    .processor-list { margin:0; padding:0; list-style:none; }
+    .processor-list li { display:flex; justify-content:space-between; gap:10px; padding:7px 0; border-top:1px solid #edf0f4; font-size:13px; }
+    .processor-list li:first-child { border-top:0; padding-top:0; }
+    .processor-list b { white-space:nowrap; color:#226db3; }
+
+    /* 产品选择区 */
+    .product-pick { border:1px solid var(--line); border-radius:7px; padding:14px; margin-bottom:18px; }
+    .product-pick h3 { margin:0 0 12px; font-size:15px; color:#2d80d3; }
+    .product-pick .field { grid-template-columns:80px 1fr; margin-bottom:10px; }
+    .product-pick select { width:100%; }
+    .product-info { margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); font-size:12px; color:#555f6e; line-height:1.7; }
+    .product-info strong { color:#2d80d3; }
+    .reset-btn { margin-top:10px; font-size:12px; height:28px; padding:0 10px; }
+
+    /* 电源计算 */
+    .power-section h2 { margin-bottom:8px; }
+    .power-note { margin:0 0 14px; color:var(--muted); font-size:13px; }
+    .power-layout { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+    .power-layout label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .power-layout select { width:100%; }
+    .power-metrics { display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+    .power-chain { margin-top:14px; padding:12px; background:#f8fafd; border-radius:6px; font-size:13px; color:#4d5563; line-height:1.8; }
+    .power-chain b { color:#2d80d3; }
+    .power-uhd-warning { margin-top:12px; padding:10px 12px; background:#eaf2fb; border:1px solid #2d80d3; border-radius:6px; color:#1a5ba3; font-size:13px; display:none; }
+    .power-uhd-warning.show { display:block; }
+    .power-uhd-warning strong { color:#2d80d3; }
+
+    @media (max-width:820px) { .layout{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>LED 屏体网线带载计算器</h1>
+      <p>根据箱体像素和单网口最大带载，自动规划网线分组并生成屏体预览。</p>
+    </header>
+    <section class="layout">
+      <aside class="card">
+        <h2>基础参数</h2>
+
+        <!-- 产品选择区 -->
+        <div class="product-pick">
+          <h3>产品快速选择</h3>
+          <div class="field">
+            <label>产品系列</label>
+            <select id="selSeries"><option value="">请先选择</option><option value="COB（UHD）">COB（UHD）</option><option value="MIP（UV）">MIP（UV）</option><option value="ULO">ULO</option><option value="UA">UA</option><option value="V-Q">V-Q</option><option value="RP">RP</option><option value="RPW">RPW</option><option value="RAS">RAS</option><option value="RASW">RASW</option><option value="FS-DU / FS-FU">FS-DU / FS-FU</option><option value="FS-QQ">FS-QQ</option><option value="FS-QM">FS-QM</option><option value="FS-QC / FS-QEⅡ">FS-QC / FS-QEⅡ</option><option value="FS-QL">FS-QL</option></select>
+          </div>
+          <div class="field">
+            <label>箱体尺寸</label>
+            <select id="selSize"><option value="">请选择</option><option value="600×337.5">600×337.5</option></select>
+          </div>
+          <div class="field">
+            <label>点间距</label>
+            <select id="selPitch"><option value="">请选择</option><option value="P0.9375">P0.9375 · 640×360 · 网口带2箱</option><option value="P1.25">P1.25 · 480×270 · 网口带5箱</option><option value="P1.5625">P1.5625 · 384×216 · 网口带7箱</option><option value="P1.875">P1.875 · 320×180 · 网口带11箱</option></select>
+          </div>
+          <div id="productInfo" class="product-info">分辨率 <strong>384×216</strong>（82,944点） · 网口带载 <strong>7箱</strong>（580,608点/口） · <span style="color:#c0532b">⚠ UHD 产品（电源仅支持垂直串接）</span></div>
+          <button id="resetProduct" class="button secondary reset-btn" type="button">清除产品选择</button>
+          <button id="apply" class="button" type="button" style="margin-top:10px;">应用参数 &amp; 刷新预览</button>
+        </div>
+
+        <div class="field"><label>计算方式</label><div class="inline"><button class="button" type="button">箱体数量</button></div></div>
+        <div class="field"><label for="cols">箱体阵列</label><div class="inline"><span>列数：</span><input id="cols" type="number" min="1" max="50" value="5"><span>行数：</span><input id="rows" type="number" min="1" max="50" value="5"></div></div>
+        <div class="field"><label>箱体分辨率</label><div class="inline"><span>宽：</span><input id="boxW" type="number" min="1" value="384"><span class="unit">px</span><span>高：</span><input id="boxH" type="number" min="1" value="216"><span class="unit">px</span></div></div>
+        <div class="field"><label for="capacity">单网口带载</label><div class="inline"><span>最大像素：</span><input class="wide" id="capacity" type="number" min="1" value="650000"><span class="unit">点</span></div></div>
+        
+      </aside>
+      <section class="right">
+        <!-- 电源计算卡片 -->
+        <div id="powerCard" class="card power-section" style="">
+          <h2>电源带载计算</h2>
+          <p id="powerNote" class="power-note">基于选定产品的电源规格，计算整屏所需的供电路数与线径要求。</p>
+
+          <div class="power-layout" style="grid-template-columns:1fr;">
+            <div>
+              <label>供电电压</label>
+              <select id="voltageSel">
+                <option value="">请先选择</option>
+                <option value="220">220V（常规环境）</option>
+                <option value="110">110V（带载减半）</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="power-metrics">
+            <div class="metric" style="position: relative;"><span>单箱功率</span><strong id="pPower">105 W</strong></div>
+            <div class="metric"><span>单路极限串联</span><strong id="pMaxBoxes">16 箱 / 路（220V）</strong></div>
+            <div class="metric"><span>整屏总功率</span><strong id="pTotalPower">8,505 W（≈ 8.5 kW）</strong></div>
+            <div class="metric"><span>整屏所需电源路数</span><strong id="pCircuits">6 路</strong></div>
+          </div>
+
+          <div id="powerChain" class="power-chain">
+        <div><b>主电线规格：</b>3×2.5mm²（或3×1.5mm²）定制线一拖一/一拖多</div>
+        <div><b>连箱线规格：</b>3×1.5mm²定制线</div>
+        <div><b>计算公式：</b>ceil(81 箱 ÷ 16 箱/路) = <b>6</b> 路。</div>
+        <div style="margin-top:4px;color:#3a4a5e">前 5 路每路 16 箱，最后一路 1 箱。</div>
+        <div style="color:#c0532b;margin-top:4px">📝 备注：惠科32台 / 鸿利16台 / 康佳20台，取最小值（保守安全）</div>
+      </div>
+        </div>
+
+        <div id="processorCard" class="card processor" style="position: relative;">
+          <h2>LED 处理器匹配</h2>
+          <p id="processorNote" class="processor-note"></p>
+          <section class="processor-group"><h3>推荐单机</h3><ul id="singleProcessors" class="processor-list"><li><span>MCTRL R5</span><b style="position: relative;">8 路</b></li><li><span>VX1000 Pro</span><b>10 路</b></li></ul></section>
+        </div>
+        <div class="card result">
+          <h2>计算结果</h2>
+          <div class="summary">
+            <div class="metric"><span>单箱体像素</span><strong id="boxPixels">82,944 点</strong></div>
+            <div class="metric"><span>所需网线数</span><strong id="cableCount">12 根</strong></div>
+          </div>
+          <p id="formula" class="formula">网口 1：A1－A2－A3－A4－A5－A6－A7；网口 2：B1－B2－B3－B4－B5－B6－B7；网口 3：C1－C2－C3－C4－C5－C6－C7；网口 4：D1－D2－D3－D4－D5－D6－D7；网口 5：E1－E2－E3－E4－E5－E6－E7；网口 6：F1－F2－F3－F4－F5－F6－F7；网口 7：G1－G2－G3－G4－G5－G6－G7；网口 8：H1－H2－H3－H4－H5－H6－H7；网口 9：I1－I2－I3－I4－I5－I6－I7；网口 10：A8－B8－C8－C9－B9－A9；网口 11：D8－E8－F8－F9－E9－D9；网口 12：G8－H8－I8－I9－H9－G9。箱体带载率按"本网口箱体数 ÷ 单网口最多箱体数"计算。</p>
+          <p id="warning" class="warning"></p>
+        </div>
+        <div class="card">
+          <div class="preview-head"><h2 style="position: relative;">屏体预览（不同网线不同底色）</h2><span id="previewInfo" class="legend">9 列 × 9 行 · 单网口最多 7 箱</span></div>
+          <div class="screen-wrap"><div id="screen" class="screen" aria-label="LED 屏体分组预览" style="grid-template-columns: repeat(9, 53px);"><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A1</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B1</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C1</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D1</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E1</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F1</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G1</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H1</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I1</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A2</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B2</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C2</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D2</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E2</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F2</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G2</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H2</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I2</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A3</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B3</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C3</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D3</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E3</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F3</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G3</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H3</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I3</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A4</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B4</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C4</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D4</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E4</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F4</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G4</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H4</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I4</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A5</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B5</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C5</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D5</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E5</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F5</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G5</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H5</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I5</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A6</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B6</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C6</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D6</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E6</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F6</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G6</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H6</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I6</div><div class="box" title="网线 1" style="background: rgb(234, 242, 251);">A7</div><div class="box" title="网线 2" style="background: rgb(247, 235, 237);">B7</div><div class="box" title="网线 3" style="background: rgb(234, 245, 237);">C7</div><div class="box" title="网线 4" style="background: rgb(255, 243, 223);">D7</div><div class="box" title="网线 5" style="background: rgb(238, 234, 253);">E7</div><div class="box" title="网线 6" style="background: rgb(230, 245, 244);">F7</div><div class="box" title="网线 7" style="background: rgb(249, 233, 244);">G7</div><div class="box" title="网线 8" style="background: rgb(237, 241, 217);">H7</div><div class="box" title="网线 9" style="background: rgb(233, 237, 244);">I7</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">A8</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">B8</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">C8</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">D8</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">E8</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">F8</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">G8</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">H8</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">I8</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">A9</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">B9</div><div class="box" title="网线 10" style="background: rgb(250, 238, 228);">C9</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">D9</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">E9</div><div class="box" title="网线 11" style="background: rgb(234, 242, 251);">F9</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">G9</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">H9</div><div class="box" title="网线 12" style="background: rgb(247, 235, 237);">I9</div></div></div>
+        </div>
+        <!-- 电源带载示意图 -->
+        <div id="powerPreviewCard" class="card" style="">
+          <div class="power-preview-head">
+            <h2>电源带载示意图（不同电源路数不同暖色）</h2>
+            <span id="powerPreviewInfo" class="legend">9 列 × 9 行 · 单路最多 16 箱 · 共 9 路电源</span>
+          </div>
+          <div class="screen-wrap"><div id="powerScreen" class="screen" aria-label="电源带载分组预览" style="grid-template-columns: repeat(9, 53px);"><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A1</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B1</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C1</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D1</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E1</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F1</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G1</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H1</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I1</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A2</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B2</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C2</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D2</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E2</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F2</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G2</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H2</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I2</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A3</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B3</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C3</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D3</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E3</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F3</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G3</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H3</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I3</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A4</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B4</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C4</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D4</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E4</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F4</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G4</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H4</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I4</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A5</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B5</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C5</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D5</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E5</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F5</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G5</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H5</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I5</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A6</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B6</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C6</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D6</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E6</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F6</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G6</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H6</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I6</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A7</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B7</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C7</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D7</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E7</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F7</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G7</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H7</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I7</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A8</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B8</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C8</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D8</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E8</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F8</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G8</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H8</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I8</div><div class="pbox" title="电源 1（1×9=9箱）" style="background: rgb(255, 233, 214);">A9</div><div class="pbox" title="电源 2（1×9=9箱）" style="background: rgb(255, 220, 192);">B9</div><div class="pbox" title="电源 3（1×9=9箱）" style="background: rgb(255, 201, 163);">C9</div><div class="pbox" title="电源 4（1×9=9箱）" style="background: rgb(255, 181, 133);">D9</div><div class="pbox" title="电源 5（1×9=9箱）" style="background: rgb(255, 163, 102);">E9</div><div class="pbox" title="电源 6（1×9=9箱）" style="background: rgb(255, 145, 77);">F9</div><div class="pbox" title="电源 7（1×9=9箱）" style="background: rgb(255, 128, 51);">G9</div><div class="pbox" title="电源 8（1×9=9箱）" style="background: rgb(255, 110, 26);">H9</div><div class="pbox" title="电源 9（1×9=9箱）" style="background: rgb(247, 96, 16);">I9</div></div></div>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script>
+    // ========== 产品数据（硬编码自 Excel：产品带载表2026.5.7.xls） ==========
+
+    // 网线带载表：产品系列 → 箱体尺寸 → 点间距 → {宽, 高, 带载箱体数}
+    const networkProducts = [
+      {
+        series: 'COB（UHD）', uhd: true,
+        sizes: [{ size: '600×337.5', pitches: [
+          { pitch: 'P0.9375', w: 640, h: 360, boxes: 2 },
+          { pitch: 'P1.25',   w: 480, h: 270, boxes: 5 },
+          { pitch: 'P1.5625', w: 384, h: 216, boxes: 7 },
+          { pitch: 'P1.875',  w: 320, h: 180, boxes: 11 },
+        ]}]
+      },
+      {
+        series: 'MIP（UV）', uhd: false,
+        sizes: [{ size: '600×337.5', pitches: [
+          { pitch: 'P0.9375', w: 640, h: 360, boxes: 2 },
+          { pitch: 'P1.25',   w: 480, h: 270, boxes: 5 },
+          { pitch: 'P1.5625', w: 384, h: 216, boxes: 7 },
+          { pitch: 'P1.875',  w: 320, h: 180, boxes: 11 },
+        ]}]
+      },
+      {
+        series: 'ULO', uhd: false,
+        sizes: [{ size: '600×337.5', pitches: [
+          { pitch: 'P0.9375', w: 640, h: 360, boxes: 2 },
+          { pitch: 'P1.25',   w: 480, h: 270, boxes: 5 },
+          { pitch: 'P1.5625', w: 384, h: 216, boxes: 7 },
+          { pitch: 'P1.875',  w: 320, h: 180, boxes: 11 },
+        ]}]
+      },
+      {
+        series: 'UA', uhd: false,
+        sizes: [{ size: '640×480', pitches: [
+          { pitch: 'P1.86', w: 344, h: 258, boxes: 7 },
+          { pitch: 'P2',    w: 320, h: 240, boxes: 8 },
+          { pitch: 'P2.5',  w: 256, h: 192, boxes: 13 },
+        ]}]
+      },
+      {
+        series: 'V-Q', uhd: false,
+        sizes: [
+          { size: '250×500', pitches: [
+            { pitch: 'P1.9', w: 128, h: 256, boxes: 19 },
+            { pitch: 'P2.6', w:  96, h: 192, boxes: 35 },
+            { pitch: 'P3.9', w:  64, h: 128, boxes: 79 },
+          ]},
+          { size: '500×500', pitches: [
+            { pitch: 'P1.9', w: 256, h: 256, boxes: 9 },
+            { pitch: 'P2.6', w: 192, h: 192, boxes: 17 },
+            { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+          ]},
+        ]
+      },
+      {
+        series: 'RP', uhd: false,
+        sizes: [
+          { size: '500×500', pitches: [
+            { pitch: 'P1.9', w: 256, h: 256, boxes: 9 },
+            { pitch: 'P2.6', w: 192, h: 192, boxes: 17 },
+            { pitch: 'P2.9', w: 168, h: 168, boxes: 23 },
+            { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+          ]},
+          { size: '500×1000', pitches: [
+            { pitch: 'P2.9', w: 168, h: 336, boxes: 11 },
+            { pitch: 'P3.9', w: 128, h: 256, boxes: 19 },
+          ]},
+        ]
+      },
+      {
+        series: 'RPW', uhd: false,
+        sizes: [
+          { size: '500×500', pitches: [
+            { pitch: 'P1.9', w: 256, h: 256, boxes: 9 },
+            { pitch: 'P2.6', w: 192, h: 192, boxes: 17 },
+            { pitch: 'P2.9', w: 168, h: 168, boxes: 23 },
+            { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+          ]},
+          { size: '500×1000', pitches: [
+            { pitch: 'P2.9', w: 168, h: 336, boxes: 11 },
+            { pitch: 'P3.9', w: 128, h: 256, boxes: 19 },
+          ]},
+        ]
+      },
+      {
+        series: 'RAS', uhd: false,
+        sizes: [{ size: '500×500', pitches: [
+          { pitch: 'P2.9', w: 168, h: 168, boxes: 23 },
+          { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+        ]}]
+      },
+      {
+        series: 'RASW', uhd: false,
+        sizes: [{ size: '500×500', pitches: [
+          { pitch: 'P2.9', w: 168, h: 168, boxes: 23 },
+          { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+        ]}]
+      },
+      {
+        series: 'FS-DU / FS-FU', uhd: false,
+        sizes: [{ size: '480×320', pitches: [
+          { pitch: 'P3.9', w: 123, h: 82, boxes: 64 },
+          { pitch: 'P6.6', w:  72, h: 48, boxes: 188 },
+        ]}]
+      },
+      {
+        series: 'FS-QQ', uhd: false,
+        sizes: [{ size: '500×500', pitches: [
+          { pitch: 'P1.25', w: 400, h: 400, boxes: 4 },
+          { pitch: 'P1.56', w: 320, h: 320, boxes: 6 },
+          { pitch: 'P1.95', w: 256, h: 256, boxes: 9 },
+        ]}]
+      },
+      {
+        series: 'FS-QM', uhd: false,
+        sizes: [{ size: '500×500', pitches: [
+          { pitch: 'P3.9', w: 128, h: 128, boxes: 39 },
+          { pitch: 'P4.8', w: 104, h: 104, boxes: 60 },
+        ]}]
+      },
+      {
+        series: 'FS-QC / FS-QEⅡ', uhd: false,
+        sizes: [{ size: '960×960', pitches: [
+          { pitch: 'P5.7', w: 168, h: 168, boxes: 23 },
+          { pitch: 'P6.6', w: 144, h: 144, boxes: 31 },
+          { pitch: 'P8',   w: 120, h: 120, boxes: 45 },
+          { pitch: 'P10',  w:  96, h:  96, boxes: 70 },
+        ]}]
+      },
+      {
+        series: 'FS-QL', uhd: false,
+        sizes: [{ size: '1000×1000', pitches: [
+          { pitch: 'P2.9',  w: 336, h: 336, boxes: 5 },
+          { pitch: 'P3.9',  w: 256, h: 256, boxes: 9 },
+          { pitch: 'P4.8',  w: 208, h: 208, boxes: 15 },
+          { pitch: 'P6.25', w: 160, h: 160, boxes: 25 },
+          { pitch: 'P7.8',  w: 128, h: 128, boxes: 39 },
+          { pitch: 'P10.4', w:  96, h:  96, boxes: 70 },
+        ]}]
+      },
+    ];
+
+    // 电源带载表：产品系列 → 箱体尺寸 → {功率W, 主电线, 连箱线, 220V带载箱数, 备注}
+    const powerProducts = {
+      'COB（UHD）': [{ size: '600×337.5', power: 105, mainWire: '3×2.5mm²（或3×1.5mm²）定制线一拖一/一拖多', linkWire: '3×1.5mm²定制线', maxBoxes220: 16, note: '惠科32台 / 鸿利16台 / 康佳20台，取最小值（保守安全）', uhdVertical: true }],
+      'MIP（UV）':  [{ size: '600×337.5', power: 180, mainWire: '3×2.5mm²安德森', linkWire: '3×1.5mm²安德森', maxBoxes220: 20, note: '' }],
+      'ULO':        [{ size: '600×337.5', power: 105, mainWire: '3×1.5mm²品字线', linkWire: '3×1.5mm²品字线', maxBoxes220: 17, note: '' }],
+      'UA':         [{ size: '640×480', power: 180, mainWire: '3×1.5mm² VL6.2-2白头线一拖一/一拖多', linkWire: '3×1.5mm² VL6.2-2白头线', maxBoxes220: 10, note: '' }],
+      'V-Q':        [
+        { size: '250×500', power: 180, mainWire: '3×1.5mm²品字线', linkWire: '3×1.5mm²品字线', maxBoxes220: 10, note: '' },
+        { size: '500×500', power: 180, mainWire: '3×1.5mm²品字线', linkWire: '3×1.5mm²品字线', maxBoxes220: 10, note: '' },
+      ],
+      'RP': [
+        { size: '500×500',   power: 225, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 16, note: '' },
+        { size: '500×1000',  power: 450, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 8,  note: '' },
+      ],
+      'RPW': [
+        { size: '500×500',   power: 250, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 14, note: '' },
+        { size: '500×1000',  power: 500, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 7,  note: '' },
+      ],
+      'RAS':  [{ size: '500×500', power: 225, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 16, note: '' }],
+      'RASW': [{ size: '500×500', power: 250, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 14, note: '' }],
+      'FS-DU / FS-FU': [{ size: '480×320', power: 120, mainWire: '3×1.5mm²瑞盈二合一', linkWire: '3×1.5mm²瑞盈二合一', maxBoxes220: 15, note: '' }],
+      'FS-QQ':  [{ size: '500×500', power: 250, mainWire: '', linkWire: '', maxBoxes220: 14, note: '功率250W，主电线/连箱线未标注' }],
+      'FS-QM':  [{ size: '500×500', power: 200, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 18, note: '' }],
+      'FS-QC / FS-QEⅡ': [{ size: '960×960', power: 700, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 5, note: '行修为800W，带4台' }],
+      'FS-QL':  [{ size: '1000×1000', power: 800, mainWire: '3×2.5mm²西尚航插', linkWire: '3×2.5mm²西尚航插', maxBoxes220: 4, note: '' }],
+    };
+
+    // ========== 原有变量与工具 ==========
+    const $ = id => document.getElementById(id);
+    const colors = ['#eaf2fb','#f7ebed','#eaf5ed','#fff3df','#eeeafd','#e6f5f4','#f9e9f4','#edf1d9','#e9edf4','#faeee4'];
+    // 电源示意图深色板：高对比、色差大，每路一眼区分
+    const powerColors = [
+      '#c62828',  // 深红（0°）
+      '#ef6c00',  // 深橙（30°）
+      '#f9a825',  // 深金（50°）
+      '#558b2f',  // 深绿（90°）
+      '#00838f',  // 深青（180°）
+      '#1565c0',  // 深蓝（210°）
+      '#283593',  // 深蓝紫（240°）
+      '#6a1b9a',  // 深紫（270°）
+      '#880e4f',  // 深洋红（330°）
+      '#4e342e',  // 深棕
+      '#37474f',  // 深蓝灰
+      '#5d4037',  // 深咖啡
+      '#ad1457',  // 深玫红
+      '#00695c',  // 深青绿
+      '#4527a0',  // 深靛
+      '#bf360c'   // 深赤
+    ];
+    const fmt = n => new Intl.NumberFormat('zh-CN').format(n);
+    const processors = [
+      ['MCTRL300', 2], ['MSD300', 2], ['MCTRL600', 4], ['MCTRL660', 4], ['MCTRL660 PRO', 6],
+      ['MCTRL R5', 8], ['MCTRL4K', 16], ['NovaPro UHD', 16], ['NovaPro UHD Jr', 16], ['TB30', 1, '1 主 1 备'],
+      ['TB50', 2], ['TB60', 4], ['TU15 Pro', 4], ['TU20 Pro', 6], ['TU4K Pro', 20],
+      ['VX400 Pro', 4], ['VX600 Pro', 6], ['VX1000 Pro', 10], ['VX2000 Pro', 20], ['H2', 40],
+      ['H5', 60], ['H9', 100], ['H9 Enhanced', 200], ['H15', 200], ['H15 Enhanced', 320], ['H20', 400]
+    ].map(([name, ports, note = '']) => ({ name, ports, note }));
+
+    function val(id) { return Number($(id).value); }
+
+    // ========== 原有核心算法（完全保持不变） ==========
+    function processorSeries(name) {
+      if (name.startsWith('MCTRL')) return 'MCTRL';
+      if (name.startsWith('NovaPro')) return 'NovaPro';
+      if (name.startsWith('TB')) return 'TB';
+      if (name.startsWith('TU')) return 'TU';
+      if (name.startsWith('VX')) return 'VX';
+      if (name.startsWith('H')) return 'H';
+      return name;
+    }
+    function renderProcessorMatches(requiredPorts) {
+      const ordered = processors
+        .filter(item => item.ports >= requiredPorts)  // 下限严格 ≥ 计算结果的网线数
+        .sort((a, b) => a.ports - b.ports || a.name.localeCompare(b.name, 'zh-CN'));
+      const usedSeries = new Set();
+      const singles = ordered.filter(item => {
+        const series = processorSeries(item.name);
+        if (usedSeries.has(series)) return false;
+        usedSeries.add(series);
+        return true;
+      }).slice(0, 5);
+      $('processorCard').style.display = '';
+      $('processorNote').textContent = `当前需要 ${requiredPorts} 路网口输出；推荐输出路数 ≥ ${requiredPorts} 的单机型号。`;
+      $('singleProcessors').innerHTML = singles.length ? singles.map(item =>
+        `<li><span>${item.name}${item.note ? `（${item.note}）` : ''}</span><b>${item.ports} 路</b></li>`
+      ).join('') : '<li><span>暂无符合输出路数范围的单机型号</span></li>';
+    }
+    const columnName = index => {
+      let name = '';
+      do { name = String.fromCharCode(65 + (index % 26)) + name; index = Math.floor(index / 26) - 1; } while (index >= 0);
+      return name;
+    };
+
+    // 核心分组算法（完全保留原始实现）
+    function bestShape(width, height, maxBoxes) {
+      const choices = [];
+      for (let groupX = 1; groupX <= width; groupX++) for (let groupY = 1; groupY <= height; groupY++) {
+        const boxes = groupX * groupY;
+        if (boxes <= maxBoxes) choices.push({ groupX, groupY, boxes });
+      }
+      return choices.sort((a, b) =>
+        b.boxes - a.boxes ||
+        Math.abs(a.groupX - a.groupY) - Math.abs(b.groupX - b.groupY) ||
+        a.groupX - b.groupX
+      )[0];
+    }
+
+    // v2 改进：最少条数覆盖（用于 split 递归的余数区域，减少碎片）
+    function bestShapeNew(width, height, maxBoxes) {
+      const choices = [];
+      for (let gx = 1; gx <= width; gx++) for (let gy = 1; gy <= height; gy++) {
+        const boxes = gx * gy;
+        if (boxes <= maxBoxes) {
+          const stripsX = Math.ceil(width / gx);
+          const stripsY = Math.ceil(height / gy);
+          choices.push({ gx, gy, boxes, strips: stripsX * stripsY });
+        }
+      }
+      // 最少条数 → 接近方形 → 单条箱数大 → groupX 小
+      return choices.sort((a, b) =>
+        a.strips - b.strips ||
+        Math.abs(a.gx - a.gy) - Math.abs(b.gx - b.gy) ||
+        b.boxes - a.boxes ||
+        a.gx - b.gx
+      )[0];
+    }
+
+    function snakeCells(x, y, width, height) {
+      const cells = [];
+      if (height > width) {
+        for (let dx = 0; dx < width; dx++) {
+          const rows = Array.from({ length: height }, (_, i) => i);
+          if (dx % 2) rows.reverse();
+          rows.forEach(dy => cells.push({ x: x + dx, y: y + dy }));
+        }
+      } else {
+        for (let dy = 0; dy < height; dy++) {
+          const cols = Array.from({ length: width }, (_, i) => i);
+          if (dy % 2) cols.reverse();
+          cols.forEach(dx => cells.push({ x: x + dx, y: y + dy }));
+        }
+      }
+      return cells;
+    }
+
+    // ========== 电源分组算法 ==========
+    // UHD 强制垂直：每列一个电源路数，纵向串接；
+    // 非 UHD：用 bestShapeNew 最少条覆盖（与电源路数计算一致）
+    function buildPowerGroups(cols, rows, maxBoxes, uhdVertical) {
+      if (uhdVertical) {
+        // 强制垂直串接：每列内纵向切分，每段 ≤ maxBoxes
+        const groups = [];
+        const gy = Math.min(maxBoxes, rows);
+        for (let x = 0; x < cols; x++) {
+          for (let y = 0; y < rows; y += gy) {
+            const h = Math.min(gy, rows - y);
+            groups.push({ groupX: 1, groupY: h, cells: snakeCells(x, y, 1, h) });
+          }
+        }
+        return groups;
+      }
+      // 非 UHD：复用 v2 的 buildGroups（已经是最少条覆盖）
+      return buildGroups(cols, rows, maxBoxes);
+    }
+
+    function buildGroups(cols, rows, maxBoxes) {
+      const groups = [];
+      function split(x, y, width, height, depth) {
+        if (!width || !height) return;
+        // v2：顶层（depth=0）保持旧行为最大化单条箱数；递归余数改用最少条覆盖
+        const raw = depth === 0
+          ? bestShape(width, height, maxBoxes)
+          : bestShapeNew(width, height, maxBoxes);
+        const shape = { groupX: raw.groupX ?? raw.gx, groupY: raw.groupY ?? raw.gy, boxes: raw.boxes };
+        const usedWidth = Math.floor(width / shape.groupX) * shape.groupX;
+        const usedHeight = Math.floor(height / shape.groupY) * shape.groupY;
+        for (let top = y; top < y + usedHeight; top += shape.groupY) {
+          for (let left = x; left < x + usedWidth; left += shape.groupX) {
+            groups.push({ ...shape, cells: snakeCells(left, top, shape.groupX, shape.groupY) });
+          }
+        }
+        split(x, y + usedHeight, width, height - usedHeight, depth + 1);
+        split(x + usedWidth, y, width - usedWidth, usedHeight, depth + 1);
+      }
+      split(0, 0, cols, rows, 0);
+      return groups;
+    }
+
+    function render() {
+      const cols = Math.floor(val('cols')), rows = Math.floor(val('rows'));
+      const boxW = val('boxW'), boxH = val('boxH'), capacity = val('capacity');
+      const warning = $('warning');
+      if (![cols,rows,boxW,boxH,capacity].every(Number.isFinite) || cols < 1 || rows < 1 || boxW < 1 || boxH < 1 || capacity < 1) {
+        warning.classList.add('show'); warning.textContent = '请填写大于 0 的有效参数。'; $('processorCard').style.display = 'none'; return;
+      }
+      const boxPixels = boxW * boxH;
+      const maxBoxes = Math.floor(capacity / boxPixels);
+      if (maxBoxes < 1) {
+        warning.classList.add('show');
+        warning.textContent = `单个箱体为 ${fmt(boxPixels)} 点，已超过单网口 ${fmt(capacity)} 点的带载上限。`;
+        $('screen').innerHTML = '';
+        $('boxPixels').textContent = `${fmt(boxPixels)} 点`;
+        $('cableCount').textContent = '–';
+        $('formula').textContent = '请先降低箱体像素或提高单网口最大像素。';
+        $('processorCard').style.display = 'none';
+        return;
+      }
+      const groups = buildGroups(cols, rows, maxBoxes);
+      warning.classList.remove('show');
+      const screen = $('screen'); screen.innerHTML = ''; screen.style.gridTemplateColumns = `repeat(${cols}, 53px)`;
+      const groupForCell = new Map();
+      groups.forEach((group, index) => group.cells.forEach(cell => groupForCell.set(`${cell.x},${cell.y}`, index)));
+      for (let y=0; y<rows; y++) for (let x=0; x<cols; x++) {
+        const cableId = groupForCell.get(`${x},${y}`);
+        const node = document.createElement('div'); node.className = 'box';
+        node.textContent = `${columnName(x)}${y + 1}`;
+        node.style.background = colors[cableId % colors.length];
+        node.title = `网线 ${cableId + 1}`; screen.appendChild(node);
+      }
+      $('boxPixels').textContent = `${fmt(boxPixels)} 点`;
+      $('cableCount').textContent = `${groups.length} 根`;
+      $('previewInfo').textContent = `${cols} 列 × ${rows} 行 · 单网口最多 ${maxBoxes} 箱`;
+      const groupDetails = groups.map((group, index) => `网口 ${index + 1}：${group.cells.map(cell => `${columnName(cell.x)}${cell.y + 1}`).join('－')}`).join('；');
+      $('formula').textContent = `${groupDetails}。箱体带载率按"本网口箱体数 ÷ 单网口最多箱体数"计算。`;
+      renderProcessorMatches(groups.length);
+    }
+
+    // ========== 新增：产品选择级联逻辑 ==========
+    let selectedProduct = null; // { series, size, pitch, w, h, boxes, uhd, powerInfo }
+
+    function initProductSelect() {
+      const selSeries = $('selSeries');
+      selSeries.innerHTML = '<option value="">请先选择</option>' +
+        networkProducts.map(p => `<option value="${p.series}">${p.series}</option>`).join('');
+
+      selSeries.addEventListener('change', onSeriesChange);
+      $('selSize').addEventListener('change', onSizeChange);
+      $('selPitch').addEventListener('change', onPitchChange);
+      $('resetProduct').addEventListener('click', resetProduct);
+      $('voltageSel').addEventListener('change', renderPowerCalc);
+      ['cols','rows'].forEach(id => $(id).addEventListener('change', () => { render(); renderPowerCalc(); }));
+    }
+
+    function onSeriesChange() {
+      const series = $('selSeries').value;
+      const selSize = $('selSize');
+      const selPitch = $('selPitch');
+      selectedProduct = null;
+      updateProductInfo();
+
+      if (!series) { selSize.innerHTML = '<option value="">--</option>'; selPitch.innerHTML = '<option value="">--</option>'; $('powerCard').style.display = 'none'; return; }
+
+      const product = networkProducts.find(p => p.series === series);
+      selSize.innerHTML = '<option value="">请选择</option>' +
+        product.sizes.map(s => `<option value="${s.size}">${s.size}</option>`).join('');
+      selPitch.innerHTML = '<option value="">--</option>';
+    }
+
+    function onSizeChange() {
+      const series = $('selSeries').value;
+      const size = $('selSize').value;
+      const selPitch = $('selPitch');
+      selectedProduct = null;
+      updateProductInfo();
+
+      if (!series || !size) { selPitch.innerHTML = '<option value="">--</option>'; return; }
+
+      const product = networkProducts.find(p => p.series === series);
+      const sizeObj = product.sizes.find(s => s.size === size);
+      selPitch.innerHTML = '<option value="">请选择</option>' +
+        sizeObj.pitches.map(p => `<option value="${p.pitch}">${p.pitch} · ${p.w}×${p.h} · 网口带${p.boxes}箱</option>`).join('');
+    }
+
+    function onPitchChange() {
+      const series = $('selSeries').value;
+      const size = $('selSize').value;
+      const pitch = $('selPitch').value;
+      selectedProduct = null;
+
+      if (!series || !size || !pitch) { updateProductInfo(); $('powerCard').style.display = 'none'; return; }
+
+      const product = networkProducts.find(p => p.series === series);
+      const sizeObj = product.sizes.find(s => s.size === size);
+      const pitchObj = sizeObj.pitches.find(p => p.pitch === pitch);
+
+      // 查找电源信息
+      const powerInfo = (powerProducts[series] || []).find(p => p.size === size) || null;
+
+      selectedProduct = {
+        series, size, pitch,
+        w: pitchObj.w, h: pitchObj.h,
+        boxes: pitchObj.boxes,
+        uhd: product.uhd,
+        powerInfo,
+      };
+
+      // 自动填充到主参数
+      $('boxW').value = pitchObj.w;
+      $('boxH').value = pitchObj.h;
+      // 单网口最大像素 = 单箱像素 × 带载箱体数
+      $('capacity').value = pitchObj.w * pitchObj.h * pitchObj.boxes;
+
+      updateProductInfo();
+      render();
+      renderPowerCalc();
+    }
+
+    function updateProductInfo() {
+      const info = $('productInfo');
+      if (!selectedProduct) { info.textContent = '请依次选择产品系列、箱体尺寸、点间距，系统将自动填充分辨率和带载参数。'; return; }
+
+      const p = selectedProduct;
+      const netPix = p.w * p.h;
+      const totalPerPort = netPix * p.boxes;
+      let html = `分辨率 <strong>${p.w}×${p.h}</strong>（${fmt(netPix)}点） · `;
+      html += `网口带载 <strong>${p.boxes}箱</strong>（${fmt(totalPerPort)}点/口）`;
+      if (p.uhd) html += ` · <span style="color:#c0532b">⚠ UHD 产品（电源仅支持垂直串接）</span>`;
+      info.innerHTML = html;
+    }
+
+    function resetProduct() {
+      selectedProduct = null;
+      $('selSeries').value = '';
+      $('selSize').innerHTML = '<option value="">--</option>';
+      $('selPitch').innerHTML = '<option value="">--</option>';
+      updateProductInfo();
+      $('powerCard').style.display = 'none';
+    }
+
+    // ========== 新增：电源计算 ==========
+    function renderPowerCalc() {
+      if (!selectedProduct || !selectedProduct.powerInfo) {
+        $('powerCard').style.display = 'none';
+        return;
+      }
+      $('powerCard').style.display = '';
+
+      const cols = Math.floor(val('cols'));
+      const rows = Math.floor(val('rows'));
+      const totalBoxes = cols * rows;
+      const voltage = Number($('voltageSel').value);
+      if (!voltage) {
+        // 未选电压 → 指标全空，不输出公式
+        $('pPower').textContent = '–';
+        $('pMaxBoxes').textContent = '–';
+        $('pTotalPower').textContent = '–';
+        $('pCircuits').textContent = '–';
+        $('powerChain').innerHTML = '<div style="color:#727a89">请选择供电电压后查看电源带载计算。</div>';
+        $('powerPreviewCard').style.display = 'none';
+        return;
+      }
+      const pi = selectedProduct.powerInfo;
+      const pPower = pi.power || 100;
+      let maxBoxes = pi.maxBoxes220;
+      if (voltage === 110) maxBoxes = Math.floor(maxBoxes / 2);
+
+      // 核心：电源路数 = ceil(总箱体数 / Excel 极限值)
+      const circuits = Math.ceil(totalBoxes / maxBoxes);
+      const chainLen = totalBoxes % maxBoxes === 0 ? maxBoxes : (totalBoxes % maxBoxes);
+      const totalPower = totalBoxes * pPower;
+
+      $('pPower').textContent = pPower ? `${pPower} W` : '未标注';
+      $('pMaxBoxes').textContent = `${maxBoxes} 箱 / 路（${voltage}V）`;
+      $('pTotalPower').textContent = pPower ? `${fmt(totalPower)} W（≈ ${(totalPower/1000).toFixed(1)} kW）` : '未知';
+      $('pCircuits').textContent = `${circuits} 路`;
+
+      // 同步渲染电源分组示意图
+      renderPowerGroups(cols, rows, maxBoxes, !!pi.uhdVertical);
+
+      $('powerChain').innerHTML = `
+        <div><b>主电线规格：</b>${pi.mainWire || '未标注'}</div>
+        <div><b>连箱线规格：</b>${pi.linkWire || '未标注'}</div>
+        <div><b>计算公式：</b>ceil(${totalBoxes} 箱 ÷ ${maxBoxes} 箱/路) = <b>${circuits}</b> 路。</div>
+        <div style="margin-top:4px;color:#3a4a5e">前 ${circuits - (chainLen < maxBoxes ? 1 : 0)} 路每路 ${maxBoxes} 箱，最后一路 ${chainLen} 箱。</div>
+        ${pi.note ? `<div style="color:#c0532b;margin-top:4px">📝 备注：${pi.note}</div>` : ''}
+      `;
+    }
+
+    // ========== 电源带载示意图渲染 ==========
+    function renderPowerGroups(cols, rows, maxBoxes, uhdVertical) {
+      const card = $('powerPreviewCard');
+      const voltage = Number($('voltageSel').value);
+      const productReady = !!selectedProduct;
+      if (!productReady || !voltage) {
+        card.style.display = 'none';
+        return;
+      }
+      const groups = buildPowerGroups(cols, rows, maxBoxes, uhdVertical);
+      card.style.display = '';
+      $('powerPreviewInfo').textContent = `${cols} 列 × ${rows} 行 · 单路最多 ${maxBoxes} 箱 · 共 ${groups.length} 路电源`;
+      const grid = $('powerScreen'); grid.innerHTML = '';
+      grid.style.gridTemplateColumns = `repeat(${cols}, 53px)`;
+      const groupMap = new Map();
+      groups.forEach((g, i) => g.cells.forEach(c => groupMap.set(`${c.x},${c.y}`, i)));
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const gi = groupMap.get(`${x},${y}`);
+          const node = document.createElement('div');
+          node.className = 'pbox';
+          node.textContent = `${columnName(x)}${y + 1}`;
+          node.style.background = powerColors[gi % powerColors.length];
+          node.title = `电源 ${gi + 1}（${groups[gi].groupX}×${groups[gi].groupY}=${groups[gi].groupX * groups[gi].groupY}箱）`;
+          grid.appendChild(node);
+        }
+      }
+    }
+
+    // ========== 启动 ==========
+    initProductSelect();
+    $('apply').addEventListener('click', render);
+    document.querySelectorAll('#cols, #rows, #boxW, #boxH, #capacity').forEach(input => {
+      input.addEventListener('change', () => { render(); renderPowerCalc(); });
+    });
+    $('voltageSel').addEventListener('change', renderPowerCalc);
+    render();
+    renderPowerCalc();
+  </script>
+
+
+
+
+
+
+</body></html>
