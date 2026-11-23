@@ -1,8 +1,8 @@
 {
-    "name": "",
+    "name": "LED带载计算器",
     "url": "",
-    "showName": "",
-    "appid": "",
+    "showName": "LED带载计算器",
+    "appid": "com.ledpack.calc",
     "icon": "",
     "iconPath": "",
     "iconRound": true,
@@ -11,7 +11,7 @@
     "injectJq": true,
     "tauriApi": false,
     "devbug": false,
-    "version": "0.0.1",
+    "version": "1.0.0",
     "preview": "desktop",
     "platform": [
         "1-1",
@@ -25,9 +25,11 @@
     "jsFile": [],
     "filterCss": "",
     "customJs": "",
-    "isHtml": false,
-    "htmlPath": "",
-    "htmlFiles": [],
+    "isHtml": true,
+    "htmlPath": "./www",
+    "htmlFiles": [
+        "index.html"
+    ],
     "prefix": "",
     "pcRepo": "",
     "iosRepo": "",
@@ -165,7 +167,7 @@
         "showName": "LED带载计算器",
         "version": "1.0.0",
         "webUrl": "",
-        "id": "com.xiaoshen.pakeplus.ios",
+        "id": "com.ledpack.calc",
         "icon": "./app-icon.png",
         "desc": "Package for personal use only, please do not use for commercial purposes（打包仅限个人使用，请勿传播或商业用途）",
         "pubBody": "Package for personal use only, please do not use for commercial purposes（打包仅限个人使用，请勿传播或商业用途）",
@@ -183,8 +185,8 @@
         "name": "LED带载计算器",
         "showName": "LED带载计算器",
         "version": "1.0.0",
-        "webUrl": "https://juejin.cn/",
-        "id": "com.xiaoshen.pakeplus.android",
+        "webUrl": "",
+        "id": "com.ledpack.calc",
         "icon": "./app-icon.png",
         "input": "./app-icon.png",
         "output": "./res",
@@ -200,7 +202,8 @@
         "htmlPath": "./www",
         "htmlFiles": [
             "index.html"
-        ]
+        ],
+        "direction": "landscape"
     },
     "desktop": {
         "name": "PakePlus2",
@@ -238,5 +241,6 @@
         "pwdTheme": "dark",
         "autoStart": false,
         "rightClick": false
-    }
+    },
+    "webUrl": ""
 }
